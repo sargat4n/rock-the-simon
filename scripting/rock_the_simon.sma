@@ -2,7 +2,7 @@
 #include <cstrike>
 
 #define PLUGIN_NAME "Rock the Simon"
-#define PLUGIN_VERSION "0.1.0"
+#define PLUGIN_VERSION "0.2.0"
 #define PLUGIN_AUTHOR "Sargatan (https://steamcommunity.com/id/sargatan)"
 
 #define VOTE_TIME 10.0
@@ -10,6 +10,9 @@
 new bool:g_tCalled[33];
 new bool:g_voteInProgress;
 new bool:g_roundUsed;
+new g_matchUsed;
+new g_rtsCooldown;
+new g_cvarRtsCooldownRounds;
 new g_voteCounts[33];
 new g_voteMenu;
 
@@ -19,6 +22,8 @@ public plugin_init()
 
     // Cvar principal del mod
     register_cvar("rts_enabled", "1");
+    register_cvar("rts_per_match", "1");
+    g_cvarRtsCooldownRounds = register_cvar("rts_cooldown_rounds", "3");
 
     register_clcmd("rts", "cmd_rts");
     register_clcmd("rockthesimon", "cmd_rts");
@@ -34,6 +39,11 @@ public plugin_init()
 public on_round_start()
 {
     reset_round_state();
+
+    if (g_rtsCooldown > 0)
+    {
+        g_rtsCooldown--;
+    }
 }
 
 public cmd_rts(id)
@@ -55,6 +65,34 @@ public cmd_rts(id)
         return PLUGIN_HANDLED;
     }
 
+    if (g_rtsCooldown > 0)
+    {
+        rts_print_color(id, CS_TEAM_CT, "[RTS] Faltan %d rondas para poder usar RTS nuevamente.", g_rtsCooldown);
+        return PLUGIN_HANDLED;
+    }
+
+    new perMatch = get_cvar_num("rts_per_match");
+    if (perMatch > 0 && g_matchUsed >= perMatch)
+    {
+        rts_print_color(id, CS_TEAM_CT, "[RTS] Ya se alcanzó el límite de RTS en esta partida.");
+        return PLUGIN_HANDLED;
+    }
+
+    if (perMatch > 0)
+    {
+        rts_print_color(id, CS_TEAM_CT, "[RTS] RTS disponibles en la partida: %d.", perMatch - g_matchUsed);
+    }
+    else
+    {
+        rts_print_color(id, CS_TEAM_CT, "[RTS] RTS disponibles en la partida: ilimitados.");
+    }
+
+    if (has_admins_connected())
+    {
+        rts_print_color(id, CS_TEAM_CT, "[RTS] El RTS solo se habilita cuando no hay administradores conectados.");
+        return PLUGIN_HANDLED;
+    }
+
     if (cs_get_user_team(id) != CS_TEAM_T)
     {
         rts_print_color(id, CS_TEAM_T, "[RTS] Solo los ^3prisioneros^1 pueden usar este comando.");
@@ -64,6 +102,12 @@ public cmd_rts(id)
     if (get_ct_count() < 1)
     {
         rts_print_color(id, CS_TEAM_CT, "[RTS] Debe haber al menos 1 ^3guardia^1 para iniciar la votación.");
+        return PLUGIN_HANDLED;
+    }
+
+    if (!is_rts_ratio_allowed())
+    {
+        rts_print_color(id, CS_TEAM_CT, "[RTS] El RTS solo se habilita cuando hay más ^3guardias^1 que 1 por cada 4 ^3prisioneros^1.");
         return PLUGIN_HANDLED;
     }
 
@@ -107,6 +151,23 @@ stock reset_round_state()
     }
 
     remove_task(12345);
+}
+
+stock bool:has_admins_connected()
+{
+    new players[32], num;
+    get_players(players, num, "ch");
+
+    for (new i = 0; i < num; i++)
+    {
+        new id = players[i];
+        if (get_user_flags(id) & ADMIN_KICK)
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 stock bool:all_terrorists_called()
@@ -161,10 +222,26 @@ stock get_ct_count()
     return num;
 }
 
+stock bool:is_rts_ratio_allowed()
+{
+    new tcount = get_tt_count();
+    new ctcount = get_ct_count();
+
+    if (tcount < 1)
+    {
+        return false;
+    }
+
+    new maxCt = (tcount + 3) / 4;
+    return ctcount > maxCt;
+}
+
 stock start_vote()
 {
     g_voteInProgress = true;
     g_roundUsed = true;
+    g_matchUsed++;
+    g_rtsCooldown = get_pcvar_num(g_cvarRtsCooldownRounds);
 
     for (new i = 1; i <= 32; i++)
     {

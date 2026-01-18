@@ -13,7 +13,12 @@ Plugin para Counter-Strike 1.6 (AMX Mod X). Permite que los prisioneros (terrori
 - Solo los prisioneros pueden iniciar el proceso.
 - Requiere al menos 1 guardia en el servidor.
 - Todos los prisioneros deben escribir el comando para iniciar la votación.
-- Requiere 80% de consenso para cambiar al guardia.
+- Requiere 80% de consenso para cambiar al guardia (redondeo hacia arriba).
+- Límite de RTS por partida (configurable).
+- Cooldown por rondas entre RTS (configurable).
+- Solo se habilita cuando no hay administradores conectados.
+- Solo se habilita cuando hay más guardias que 1 por cada 4 prisioneros.
+- Mensajes con colores forzados: guardia/simón en azul y prisioneros en rojo.
 
 ## Estructura de archivos
 
@@ -46,6 +51,13 @@ Archivo: configs/rock_the_simon.cfg
 	- 1 = habilitado
 	- 0 = deshabilitado
 
+- rts_per_match 1
+	- Cantidad de RTS por partida
+	- 0 = ilimitado
+
+- rts_cooldown_rounds 3
+	- Rondas de espera entre RTS
+
 ## Comandos
 
 Comandos disponibles para prisioneros:
@@ -57,17 +69,22 @@ Comandos disponibles para prisioneros:
 
 1. Un prisionero escribe rts o rockthesimon.
 2. El plugin registra su voto de inicio.
-3. Cuando todos los prisioneros han escrito el comando, se inicia la votación.
-4. La votación muestra un menú con los guardias disponibles.
-5. Cada prisionero vota por un guardia/simón.
-6. Se calcula el consenso. Solo se cambia al guardia si el 80% de los prisioneros votó al mismo guardia.
-7. Si no se alcanza el 80%, no hay cambio de equipo.
+3. El plugin verifica condiciones: admins desconectados y proporción guardias/prisioneros.
+4. Si se cumple, al escribir todos los prisioneros, se inicia la votación.
+5. La votación muestra un menú con los guardias disponibles.
+6. Cada prisionero vota por un guardia/simón y ve a quién seleccionó.
+7. Se calcula el consenso (80% redondeado hacia arriba).
+8. Si no se alcanza el 80%, no hay cambio de equipo.
+9. Si se alcanza, el guardia seleccionado pasa a prisioneros.
 
 ## Detalles técnicos
 
 - El voto dura 10 segundos.
 - La votación solo puede hacerse una vez por ronda.
 - En inicio de ronda se limpia el estado interno.
+- Límite de RTS por partida con contador interno.
+- Cooldown por rondas configurable.
+- Requiere módulo cstrike habilitado.
 
 ## Solución de problemas
 
